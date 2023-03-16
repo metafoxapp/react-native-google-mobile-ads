@@ -5,8 +5,10 @@ String fileName = "/app/configuration.json"
 String jsonRoot = "react-native-google-mobile-ads"
 String jsonRaw = "GOOGLE_MOBILE_ADS_JSON_RAW"
 
-File jsonFile = null
+
 File parentDir = rootProject.projectDir
+
+File jsonFile = new File(parentDir, fileName)
 
 // for (int i = 0; i <= 3; i++) {
 //   if (parentDir == null) break
