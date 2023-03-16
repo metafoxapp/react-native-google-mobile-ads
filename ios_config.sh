@@ -22,7 +22,7 @@ _RN_ROOT_EXISTS=''
 _CURRENT_LOOKUPS=1
 _PROJECT_ABBREVIATION="RNGoogleMobileAds"
 _JSON_ROOT="'react-native-google-mobile-ads'"
-_JSON_FILE_NAME='app.json'
+_JSON_FILE_NAME='configuration.json'
 _JSON_OUTPUT_BASE64='e30=' # { }
 _CURRENT_SEARCH_DIR=${PROJECT_DIR}
 _PLIST_BUDDY=/usr/libexec/PlistBuddy
