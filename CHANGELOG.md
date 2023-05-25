@@ -1,3 +1,66 @@
+### [10.3.2](https://github.com/invertase/react-native-google-mobile-ads/compare/v10.3.1...v10.3.2) (2023-05-03)
+
+
+### Bug Fixes
+
+* **ios:** no command found ([91ffad4](https://github.com/invertase/react-native-google-mobile-ads/commit/91ffad45b11699f62820b37d7553a516dd9cbd68))
+
+### [10.3.1](https://github.com/invertase/react-native-google-mobile-ads/compare/v10.3.0...v10.3.1) (2023-04-19)
+
+
+### Bug Fixes
+
+* **ios:** incompatibility with react-native-version ([5ead5f0](https://github.com/invertase/react-native-google-mobile-ads/commit/5ead5f01712e307e7c3c1ef0dfcc6ec6f892fd66))
+
+## [10.3.0](https://github.com/invertase/react-native-google-mobile-ads/compare/v10.2.0...v10.3.0) (2023-04-18)
+
+
+### Features
+
+* **ios:** add SKAdNetwork identifiers trough app.json ([7ccbb6b](https://github.com/invertase/react-native-google-mobile-ads/commit/7ccbb6b13f800e90bcd2f0a22cc49e85d77d70dc))
+
+## [10.2.0](https://github.com/invertase/react-native-google-mobile-ads/compare/v10.1.3...v10.2.0) (2023-04-14)
+
+
+### Features
+
+* **deps:** mobile ads sdk upgrade - ios 10.3.0 / android 22.0.0 ([61bee9a](https://github.com/invertase/react-native-google-mobile-ads/commit/61bee9a82b5b520ee542e07d032ddb478836a651))
+
+### [10.1.3](https://github.com/invertase/react-native-google-mobile-ads/compare/v10.1.2...v10.1.3) (2023-04-13)
+
+
+### Bug Fixes
+
+*  Solved issue with method recordManualImpression for GAMBannerAd ([#363](https://github.com/invertase/react-native-google-mobile-ads/issues/363)) ([a7dbc74](https://github.com/invertase/react-native-google-mobile-ads/commit/a7dbc748d355528f1f7edbdd497736255adcfcc0))
+
+### [10.1.2](https://github.com/invertase/react-native-google-mobile-ads/compare/v10.1.1...v10.1.2) (2023-04-12)
+
+
+### Bug Fixes
+
+* **android-debug:** use activity for GAM ([984247f](https://github.com/invertase/react-native-google-mobile-ads/commit/984247ff80dab36004bd49c27a20f489e075029b))
+
+### [10.1.1](https://github.com/invertase/react-native-google-mobile-ads/compare/v10.1.0...v10.1.1) (2023-04-09)
+
+
+### Reverts
+
+* Revert "fix(android banner): debug menu opening" ([19b7e5a](https://github.com/invertase/react-native-google-mobile-ads/commit/19b7e5ab918ce6fe454844489ad33a19e3c8e398))
+
+## [10.1.0](https://github.com/invertase/react-native-google-mobile-ads/compare/v10.0.1...v10.1.0) (2023-04-04)
+
+
+### Features
+
+* **ads-module:** open debug menu programmatically ([3480f1b](https://github.com/invertase/react-native-google-mobile-ads/commit/3480f1b76ae950b8711db791a46e1a4a396c1bb9))
+
+### [10.0.1](https://github.com/invertase/react-native-google-mobile-ads/compare/v10.0.0...v10.0.1) (2023-03-22)
+
+
+### Bug Fixes
+
+* **android banner:** debug menu opening ([3b1f34c](https://github.com/invertase/react-native-google-mobile-ads/commit/3b1f34cb850d89555f6350d5c8b50e4c242a3a78))
+
 ## [10.0.0](https://github.com/invertase/react-native-google-mobile-ads/compare/v9.1.2...v10.0.0) (2023-03-07)
 
 
