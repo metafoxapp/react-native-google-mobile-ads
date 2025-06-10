@@ -136,6 +136,7 @@ repositories {
 
 dependencies {
   implementation("com.google.android.gms:play-services-ads:${googleMobileAdsVersion}")
+  // implementation("com.google.android.gms:play-services-ads:22.1.0")
   api "com.google.android.ump:user-messaging-platform:${googleUmpVersion}"
 }
 
