@@ -15,11 +15,20 @@
  *
  */
 
+#if !TARGET_OS_MACCATALYST
+
 #import "RNGoogleMobileAdsBannerComponent.h"
 #import <React/RCTLog.h>
 #import "RNGoogleMobileAdsCommon.h"
 
 @implementation RNGoogleMobileAdsBannerComponent
+
+- (void)dealloc {
+  if (_banner) {
+    [_banner removeFromSuperview];
+    _banner = nil;
+  }
+}
 
 - (void)didSetProps:(NSArray<NSString *> *)changedProps {
   if (_propsChanged) {
@@ -35,7 +44,12 @@
   if ([RNGoogleMobileAdsCommon isAdManagerUnit:_unitId]) {
     _banner = [[GAMBannerView alloc] initWithAdSize:adSize];
 
-    ((GAMBannerView *)_banner).validAdSizes = _sizes;
+    if (GADAdSizeEqualToSize(adSize, GADAdSizeFluid)) {
+      _banner.frame = self.bounds;
+      _banner.autoresizingMask = (UIViewAutoresizingFlexibleWidth);
+    }
+
+    ((GAMBannerView *)_banner).validAdSizes = _sizeConfig[@"sizes"];
     ((GAMBannerView *)_banner).appEventDelegate = self;
     ((GAMBannerView *)_banner).enableManualImpressions = [_manualImpressionsEnabled boolValue];
   } else {
@@ -50,22 +64,36 @@
   _propsChanged = true;
 }
 
-- (void)setSizes:(NSArray *)sizes {
+- (void)setSizeConfig:(NSDictionary *)sizeConfig {
+  NSArray *sizes = sizeConfig[@"sizes"];
   __block NSMutableArray *adSizes = [[NSMutableArray alloc] initWithCapacity:sizes.count];
+  CGFloat maxHeight = sizeConfig[@"maxHeight"] ? [sizeConfig[@"maxHeight"] doubleValue] : -1;
+  CGFloat width = sizeConfig[@"width"] ? [sizeConfig[@"width"] doubleValue] : -1;
   [sizes enumerateObjectsUsingBlock:^(id jsonValue, NSUInteger idx, __unused BOOL *stop) {
-    GADAdSize adSize = [RNGoogleMobileAdsCommon stringToAdSize:jsonValue];
+    GADAdSize adSize = [RNGoogleMobileAdsCommon stringToAdSize:jsonValue
+                                                 withMaxHeight:maxHeight
+                                                      andWidth:width];
     if (GADAdSizeEqualToSize(adSize, GADAdSizeInvalid)) {
       RCTLogWarn(@"Invalid adSize %@", jsonValue);
     } else {
       [adSizes addObject:NSValueFromGADAdSize(adSize)];
     }
   }];
-  _sizes = adSizes;
+  _sizeConfig = @{
+    @"sizes" : adSizes,
+    @"maxHeight" : [NSNumber numberWithFloat:maxHeight],
+    @"width" : [NSNumber numberWithFloat:width]
+  };
   _propsChanged = true;
 }
 
-- (void)setRequest:(NSDictionary *)request {
-  _request = request;
+- (void)setRequest:(NSString *)request {
+  NSData *jsonData = [request dataUsingEncoding:NSUTF8StringEncoding];
+  NSError *error = nil;
+  _request = [NSJSONSerialization JSONObjectWithData:jsonData options:kNilOptions error:&error];
+  if (error) {
+    NSLog(@"Error parsing JSON: %@", error.localizedDescription);
+  }
   _propsChanged = true;
 }
 
@@ -74,20 +102,47 @@
   _propsChanged = true;
 }
 
+- (GADAdSize)getInitialAdSize {
+  NSArray *sizes = _sizeConfig[@"sizes"];
+  for (NSValue *sizeValue in sizes) {
+    GADAdSize adSize = GADAdSizeFromNSValue(sizeValue);
+    if (GADAdSizeEqualToSize(adSize, GADAdSizeFluid)) {
+      return GADAdSizeFluid;
+    }
+  }
+  return GADAdSizeFromNSValue(sizes[0]);
+}
+
 - (void)requestAd {
 #ifndef __LP64__
   return;  // prevent crash on 32bit
 #endif
 
-  if (_unitId == nil || _sizes == nil || _request == nil || _manualImpressionsEnabled == nil) {
+  if (_unitId == nil || _sizeConfig == nil || _request == nil || _manualImpressionsEnabled == nil) {
     [self setRequested:NO];
     return;
   }
 
-  [self initBanner:GADAdSizeFromNSValue(_sizes[0])];
+  [self initBanner:[self getInitialAdSize]];
   [self addSubview:_banner];
   _banner.adUnitID = _unitId;
   [self setRequested:YES];
+  __weak typeof(self) weakSelf = self;
+  _banner.paidEventHandler = ^(GADAdValue *_Nonnull value) {
+    typeof(self) strongSelf = weakSelf;
+    if (strongSelf) {
+      [strongSelf sendEvent:@"onPaid"
+                    payload:@{
+                      @"value" : value.value,
+                      @"precision" : @(value.precision),
+                      @"currency" : value.currencyCode,
+                    }];
+    }
+  };
+  [self load];
+}
+
+- (void)load {
   [_banner loadRequest:[RNGoogleMobileAdsCommon buildAdRequest:_request]];
   [self sendEvent:@"onSizeChange"
           payload:@{
@@ -154,3 +209,5 @@
 }
 
 @end
+
+#endif

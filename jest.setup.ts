@@ -3,10 +3,6 @@ import * as ReactNative from 'react-native';
 jest.doMock('react-native', () => {
   return Object.setPrototypeOf(
     {
-      Platform: {
-        OS: 'android',
-        select: () => {},
-      },
       NativeModules: {
         ...ReactNative.NativeModules,
         RNAppModule: {
@@ -20,13 +16,44 @@ jest.doMock('react-native', () => {
           removeListeners: jest.fn(),
           eventsAddListener: jest.fn(),
           eventsNotifyReady: jest.fn(),
-          interstitialLoad: jest.fn(),
         },
-        RNGoogleMobileAdsInterstitialModule: {},
         RNGoogleMobileAdsRewardedModule: {},
         RNGoogleMobileAdsConsentModule: {},
+      },
+      TurboModuleRegistry: {
+        ...ReactNative.TurboModuleRegistry,
+        getEnforcing: moduleName => {
+          if (moduleName === 'RNGoogleMobileAdsInterstitialModule') {
+            return {
+              interstitialLoad: jest.fn(),
+            };
+          }
+
+          return {
+            initialize: jest.fn(),
+            setRequestConfiguration: jest.fn(),
+            openAdInspector: jest.fn(),
+            openDebugMenu: jest.fn(),
+            setAppVolume: jest.fn(),
+            setAppMuted: jest.fn(),
+          };
+        },
       },
     },
     ReactNative,
   );
+});
+jest.doMock('./src/specs/components/GoogleMobileAdsBannerViewNativeComponent', () => {
+  return {
+    __esModule: true,
+    Commands: {},
+    default: ReactNative.View,
+  };
+});
+jest.doMock('./src/specs/components/GoogleMobileAdsNativeViewNativeComponent', () => {
+  return {
+    __esModule: true,
+    Commands: {},
+    default: ReactNative.View,
+  };
 });

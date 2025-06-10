@@ -15,6 +15,8 @@
  *
  */
 
+#if !TARGET_OS_MACCATALYST
+
 #import <GoogleMobileAds/GADAppEventDelegate.h>
 #import <GoogleMobileAds/GADBannerView.h>
 #import <GoogleMobileAds/GADBannerViewDelegate.h>
@@ -25,7 +27,7 @@
 @property GADBannerView *banner;
 @property(nonatomic, assign) BOOL requested;
 
-@property(nonatomic, copy) NSArray *sizes;
+@property(nonatomic, copy) NSDictionary *sizeConfig;
 @property(nonatomic, copy) NSString *unitId;
 @property(nonatomic, copy) NSDictionary *request;
 @property(nonatomic, copy) NSNumber *manualImpressionsEnabled;
@@ -34,6 +36,9 @@
 @property(nonatomic, copy) RCTBubblingEventBlock onNativeEvent;
 
 - (void)requestAd;
+- (void)load;
 - (void)recordManualImpression;
 
 @end
+
+#endif

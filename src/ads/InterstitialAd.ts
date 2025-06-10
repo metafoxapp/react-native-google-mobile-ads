@@ -16,13 +16,13 @@
  */
 
 import { isString } from '../common';
-import { MobileAds } from '../MobileAds';
 import { validateAdRequestOptions } from '../validateAdRequestOptions';
 import { MobileAd } from './MobileAd';
 import { AdEventType } from '../AdEventType';
 import { AdEventListener } from '../types/AdEventListener';
 import { AdEventsListener } from '../types/AdEventsListener';
 import { RequestOptions } from '../types/RequestOptions';
+import NativeInterstitialModule from '../specs/modules/NativeInterstitialModule';
 
 /**
  * A class for interacting and showing Interstitial Ads.
@@ -102,7 +102,14 @@ export class InterstitialAd extends MobileAd {
     }
 
     const requestId = InterstitialAd._interstitialRequest++;
-    return new InterstitialAd('interstitial', MobileAds(), requestId, adUnitId, options);
+    return new InterstitialAd(
+      'interstitial',
+      requestId,
+      adUnitId,
+      NativeInterstitialModule.interstitialLoad,
+      NativeInterstitialModule.interstitialShow,
+      options,
+    );
   }
 
   addAdEventsListener<T extends AdEventType>(listener: AdEventsListener<T>) {

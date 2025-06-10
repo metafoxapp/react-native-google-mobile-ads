@@ -28,14 +28,12 @@ import io.invertase.googlemobileads.common.ReactNativeJSON;
 import io.invertase.googlemobileads.common.ReactNativeMeta;
 import io.invertase.googlemobileads.common.ReactNativeModule;
 import io.invertase.googlemobileads.common.ReactNativePreferences;
-import java.util.HashMap;
-import java.util.Map;
 
 public class ReactNativeAppModule extends ReactNativeModule {
-  private static final String TAG = "RNAppModule";
+  static final String NAME = "RNAppModule";
 
   ReactNativeAppModule(ReactApplicationContext reactContext) {
-    super(reactContext, TAG);
+    super(reactContext, NAME);
   }
 
   @Override
@@ -148,22 +146,5 @@ public class ReactNativeAppModule extends ReactNativeModule {
   public void preferencesClearAll(Promise promise) {
     ReactNativePreferences.getSharedInstance().clearAll();
     promise.resolve(null);
-  }
-
-  @Override
-  public Map<String, Object> getConstants() {
-    Map<String, Object> constants = new HashMap<>();
-    // List<Map<String, Object>> appsList = new ArrayList<>();
-    // List<ReactNativeApp> reactNativeApps = ReactNativeApp.getApps(getReactApplicationContext());
-
-    // for (ReactNativeApp app : reactNativeApps) {
-    //   appsList.add(RCTConvertFirebase.reactNativeAppToMap(app));
-    // }
-
-    // constants.put("NATIVE_FIREBASE_APPS", appsList);
-
-    // constants.put("FIREBASE_RAW_JSON", ReactNativeJSON.getSharedInstance().getRawJSON());
-
-    return constants;
   }
 }

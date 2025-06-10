@@ -16,7 +16,6 @@
  */
 
 import { isString } from '../common';
-import { MobileAds } from '../MobileAds';
 import { validateAdRequestOptions } from '../validateAdRequestOptions';
 import { MobileAd } from './MobileAd';
 import { AdEventType } from '../AdEventType';
@@ -24,6 +23,7 @@ import { RewardedAdEventType } from '../RewardedAdEventType';
 import { AdEventListener } from '../types/AdEventListener';
 import { AdEventsListener } from '../types/AdEventsListener';
 import { RequestOptions } from '../types/RequestOptions';
+import NativeRewardedInterstitialModule from '../specs/modules/NativeRewardedInterstitialModule';
 
 /**
  * A class for interacting and showing Rewarded Interstitial Ads.
@@ -116,9 +116,10 @@ export class RewardedInterstitialAd extends MobileAd {
     const requestId = RewardedInterstitialAd._rewardedInterstitialRequest++;
     return new RewardedInterstitialAd(
       'rewarded_interstitial',
-      MobileAds(),
       requestId,
       adUnitId,
+      NativeRewardedInterstitialModule.rewardedInterstitialLoad,
+      NativeRewardedInterstitialModule.rewardedInterstitialShow,
       options,
     );
   }

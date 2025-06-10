@@ -1,6 +1,9 @@
-import React, {useEffect, useRef} from 'react';
+/* eslint-disable no-console, @typescript-eslint/no-explicit-any */
+
+import React, {RefObject, useEffect, useRef, useState} from 'react';
 import {
   Button,
+  Image,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -8,26 +11,42 @@ import {
   Text,
   View,
 } from 'react-native';
-import {Test, TestRegistry, TestResult, TestRunner, TestType} from 'jet';
+import {
+  AutoExecutableTest,
+  TestRegistry,
+  TestResult,
+  TestRunner,
+  TestType,
+} from 'jet';
 
 import MobileAds, {
   AdEventType,
   AdsConsent,
   AdsConsentDebugGeography,
   AppOpenAd,
-  InterstitialAd,
-  TestIds,
   BannerAd,
   BannerAdSize,
-  RewardedAd,
-  RewardedAdEventType,
-  useInterstitialAd,
-  useAppOpenAd,
-  useRewardedAd,
-  GAMInterstitialAd,
   GAMAdEventType,
   GAMBannerAd,
+  GAMBannerAdSize,
+  GAMInterstitialAd,
+  InterstitialAd,
+  NativeAd,
+  NativeAdEventType,
+  NativeAdView,
+  NativeAsset,
+  NativeAssetType,
+  NativeMediaAspectRatio,
+  NativeMediaView,
+  type PaidEvent,
+  RevenuePrecisions,
+  RewardedAd,
+  RewardedAdEventType,
   RewardedInterstitialAd,
+  TestIds,
+  useAppOpenAd,
+  useInterstitialAd,
+  useRewardedAd,
   useRewardedInterstitialAd,
 } from 'react-native-google-mobile-ads';
 
@@ -35,7 +54,7 @@ const appOpen = AppOpenAd.createForAdRequest(TestIds.APP_OPEN, {
   requestNonPersonalizedAdsOnly: true,
 });
 
-class AppOpenTest implements Test {
+class AppOpenTest implements AutoExecutableTest {
   adListener: () => void;
   adLoaded = false;
 
@@ -43,6 +62,9 @@ class AppOpenTest implements Test {
     // Current no way in jet-next to re-render on async completion or to delay render? But still can log it
     this.adListener = appOpen.addAdEventsListener(({type, payload}) => {
       console.log(`${Platform.OS} app open ad event: ${type}`);
+      if (type === AdEventType.PAID) {
+        console.log(payload);
+      }
       if (type === AdEventType.ERROR) {
         console.log(`${Platform.OS} app open error: ${payload?.message}`);
       }
@@ -89,7 +111,7 @@ class AppOpenTest implements Test {
   }
 
   execute(component: any, complete: (result: TestResult) => void): void {
-    let results = new TestResult();
+    const results = new TestResult();
     try {
       // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
     } catch (error) {
@@ -107,7 +129,7 @@ const interstitial = InterstitialAd.createForAdRequest(TestIds.INTERSTITIAL, {
 });
 
 // To implement a test you must make a new object implementing a specific interface.
-class InterstitialTest implements Test {
+class InterstitialTest implements AutoExecutableTest {
   adListener: () => void;
   adLoaded = false;
 
@@ -115,6 +137,9 @@ class InterstitialTest implements Test {
     // Current no way in jet-next to re-render on async completion or to delay render? But still can log it
     this.adListener = interstitial.addAdEventsListener(({type, payload}) => {
       console.log(`${Platform.OS} interstitial ad event: ${type}`);
+      if (type === AdEventType.PAID) {
+        console.log('Paid', payload);
+      }
       if (type === AdEventType.ERROR) {
         console.log(`${Platform.OS} interstitial error: ${payload?.message}`);
       }
@@ -161,7 +186,7 @@ class InterstitialTest implements Test {
   }
 
   execute(component: any, complete: (result: TestResult) => void): void {
-    let results = new TestResult();
+    const results = new TestResult();
     try {
       // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
     } catch (error) {
@@ -173,15 +198,27 @@ class InterstitialTest implements Test {
   }
 }
 
-class BannerTest implements Test {
+class BannerTest implements AutoExecutableTest {
+  bannerRef: RefObject<BannerAd>;
   bannerAdSize: BannerAdSize | string;
-
-  constructor(bannerAdSize) {
+  maxHeight?: number;
+  width?: number;
+  constructor(bannerAdSize: BannerAdSize | string, maxHeight?: number, width?: number) {
     this.bannerAdSize = bannerAdSize;
+    this.bannerRef = React.createRef();
+    this.maxHeight = maxHeight;
+    this.width = width;
   }
 
   getPath(): string {
-    return this.bannerAdSize;
+    return this.bannerAdSize
+      .split('_')
+      .map(
+        s => s.toLowerCase().charAt(0).toUpperCase() + s.toLowerCase().slice(1),
+      )
+      .join('')
+      .concat(this.maxHeight ? `MaxHeight${this.maxHeight}` : '')
+      .concat(this.width ? `Width${this.width}` : '');
   }
 
   getTestType(): TestType {
@@ -192,10 +229,27 @@ class BannerTest implements Test {
     return (
       <View ref={onMount}>
         <BannerAd
-          unitId={TestIds.BANNER}
+          ref={this.bannerRef}
+          unitId={
+            this.bannerAdSize.includes('ADAPTIVE_BANNER')
+              ? TestIds.ADAPTIVE_BANNER
+              : TestIds.BANNER
+          }
           size={this.bannerAdSize}
-          requestOptions={{
-            requestNonPersonalizedAdsOnly: true,
+          maxHeight={this.maxHeight}
+          width={this.width}
+          onPaid={(event: PaidEvent) => {
+            console.log(
+              `Paid: ${event.value} ${event.currency} (precision ${
+                RevenuePrecisions[event.precision]
+              }})`,
+            );
+          }}
+        />
+        <Button
+          title="reload"
+          onPress={() => {
+            this.bannerRef.current?.load();
           }}
         />
       </View>
@@ -203,7 +257,44 @@ class BannerTest implements Test {
   }
 
   execute(component: any, complete: (result: TestResult) => void): void {
-    let results = new TestResult();
+    const results = new TestResult();
+    try {
+      // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
+    } catch (error) {
+      results.errors.push('Received unexpected error...');
+    } finally {
+      complete(results);
+    }
+  }
+}
+
+class CollapsibleBannerTest implements AutoExecutableTest {
+  getPath(): string {
+    return 'CollapsibleBanner';
+  }
+
+  getTestType(): TestType {
+    return TestType.Interactive;
+  }
+
+  render(onMount: (component: any) => void): React.ReactNode {
+    return (
+      <View ref={onMount}>
+        <BannerAd
+          unitId={TestIds.ADAPTIVE_BANNER}
+          size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+          requestOptions={{
+            networkExtras: {
+              collapsible: 'top',
+            },
+          }}
+        />
+      </View>
+    );
+  }
+
+  execute(component: any, complete: (result: TestResult) => void): void {
+    const results = new TestResult();
     try {
       // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
     } catch (error) {
@@ -218,7 +309,7 @@ const rewarded = RewardedAd.createForAdRequest(TestIds.REWARDED, {
   requestNonPersonalizedAdsOnly: true,
   keywords: ['fashion', 'clothing'],
 });
-class RewardedTest implements Test {
+class RewardedTest implements AutoExecutableTest {
   adListener: () => void;
   adLoaded = false;
 
@@ -226,6 +317,9 @@ class RewardedTest implements Test {
     // Current no way in jet-next to re-render on async completion or to delay render? But still can log it
     this.adListener = rewarded.addAdEventsListener(({type, payload}) => {
       console.log(`${Platform.OS} rewarded ad event: ${type}`);
+      if (type === AdEventType.PAID) {
+        console.log(payload);
+      }
       if (type === AdEventType.ERROR) {
         console.log(
           `${Platform.OS} rewarded error: ${(payload as Error).message}`,
@@ -275,7 +369,7 @@ class RewardedTest implements Test {
   }
 
   execute(component: any, complete: (result: TestResult) => void): void {
-    let results = new TestResult();
+    const results = new TestResult();
     try {
       // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
     } catch (error) {
@@ -294,7 +388,7 @@ const rewardedInterstitial = RewardedInterstitialAd.createForAdRequest(
     keywords: ['fashion', 'clothing'],
   },
 );
-class RewardedInterstitialTest implements Test {
+class RewardedInterstitialTest implements AutoExecutableTest {
   adListener: () => void;
   adLoaded = false;
 
@@ -303,6 +397,9 @@ class RewardedInterstitialTest implements Test {
     this.adListener = rewardedInterstitial.addAdEventsListener(
       ({type, payload}) => {
         console.log(`${Platform.OS} rewarded interstitial ad event: ${type}`);
+        if (type === AdEventType.PAID) {
+          console.log(payload);
+        }
         if (type === AdEventType.ERROR) {
           console.log(
             `${Platform.OS} rewarded interstitial error: ${
@@ -357,7 +454,7 @@ class RewardedInterstitialTest implements Test {
   }
 
   execute(component: any, complete: (result: TestResult) => void): void {
-    let results = new TestResult();
+    const results = new TestResult();
     try {
       // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
     } catch (error) {
@@ -369,7 +466,134 @@ class RewardedInterstitialTest implements Test {
   }
 }
 
-class AdConsentTest implements Test {
+const NativeComponent = () => {
+  const [nativeAd, setNativeAd] = useState<NativeAd>();
+
+  useEffect(() => {
+    NativeAd.createForAdRequest(TestIds.GAM_NATIVE, {
+      aspectRatio: NativeMediaAspectRatio.LANDSCAPE,
+    })
+      .then(setNativeAd)
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (!nativeAd) {
+      return;
+    }
+    nativeAd.addAdEventListener(NativeAdEventType.IMPRESSION, () => {
+      console.debug('Native ad impression');
+    });
+    nativeAd.addAdEventListener(NativeAdEventType.CLICKED, () => {
+      console.debug('Native ad clicked');
+    });
+    nativeAd.addAdEventListener(NativeAdEventType.VIDEO_PLAYED, () => {
+      console.debug('Native ad video played');
+    });
+    nativeAd.addAdEventListener(NativeAdEventType.VIDEO_PAUSED, () => {
+      console.debug('Native ad video paused');
+    });
+    nativeAd.addAdEventListener(NativeAdEventType.VIDEO_ENDED, () => {
+      console.debug('Native ad video ended');
+    });
+    nativeAd.addAdEventListener(NativeAdEventType.VIDEO_MUTED, () => {
+      console.debug('Native ad video muted');
+    });
+    nativeAd.addAdEventListener(NativeAdEventType.VIDEO_UNMUTED, () => {
+      console.debug('Native ad video unmuted');
+    });
+    return () => nativeAd.destroy();
+  }, [nativeAd]);
+
+  if (!nativeAd) {
+    return null;
+  }
+
+  return (
+    <NativeAdView nativeAd={nativeAd}>
+      <View style={{padding: 16, gap: 8}}>
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+          {nativeAd.icon && (
+            <NativeAsset assetType={NativeAssetType.ICON}>
+              <Image source={{uri: nativeAd.icon.url}} width={24} height={24} />
+            </NativeAsset>
+          )}
+          <NativeAsset assetType={NativeAssetType.HEADLINE}>
+            <Text style={{fontSize: 18, fontWeight: 'bold'}}>
+              {nativeAd.headline}
+            </Text>
+          </NativeAsset>
+          <Text
+            style={{
+              backgroundColor: '#FBBC04',
+              color: 'white',
+              paddingHorizontal: 2,
+              paddingVertical: 1,
+              fontWeight: 'bold',
+              fontSize: 12,
+              borderRadius: 4,
+            }}>
+            AD
+          </Text>
+        </View>
+        {nativeAd.advertiser && (
+          <NativeAsset assetType={NativeAssetType.ADVERTISER}>
+            <Text>{nativeAd.advertiser}</Text>
+          </NativeAsset>
+        )}
+        <NativeAsset assetType={NativeAssetType.BODY}>
+          <Text>{nativeAd.body}</Text>
+        </NativeAsset>
+      </View>
+      <NativeMediaView />
+      <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}>
+        <Text
+          style={{
+            color: 'white',
+            fontWeight: 'bold',
+            backgroundColor: '#4285F4',
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+          }}>
+          {nativeAd.callToAction}
+        </Text>
+      </NativeAsset>
+    </NativeAdView>
+  );
+};
+
+class NativeTest implements AutoExecutableTest {
+  constructor() {}
+
+  getPath(): string {
+    return 'Native';
+  }
+
+  getTestType(): TestType {
+    return TestType.Interactive;
+  }
+
+  render(onMount: (component: any) => void): React.ReactNode {
+    return (
+      <View ref={onMount}>
+        <NativeComponent />
+      </View>
+    );
+  }
+
+  execute(component: any, complete: (result: TestResult) => void): void {
+    const results = new TestResult();
+    try {
+      // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
+    } catch (error) {
+      results.errors.push('Received unexpected error...');
+    } finally {
+      complete(results);
+    }
+  }
+}
+
+class AdConsentTest implements AutoExecutableTest {
   getPath(): string {
     return 'ConsentForm';
   }
@@ -411,7 +635,7 @@ class AdConsentTest implements Test {
   }
 
   execute(component: any, complete: (result: TestResult) => void): void {
-    let results = new TestResult();
+    const results = new TestResult();
     try {
       // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
     } catch (error) {
@@ -423,7 +647,7 @@ class AdConsentTest implements Test {
 }
 
 const InterstitialHookComponent = React.forwardRef<View>((_, ref) => {
-  const {load, show, error, isLoaded, isClicked, isClosed, isOpened} =
+  const {load, show, error, isLoaded, isClicked, isClosed, isOpened, revenue} =
     useInterstitialAd(TestIds.INTERSTITIAL);
   useEffect(() => {
     load();
@@ -439,6 +663,10 @@ const InterstitialHookComponent = React.forwardRef<View>((_, ref) => {
     );
   }, [isLoaded, isOpened, isClicked, isClosed]);
 
+  if (revenue) {
+    console.log('Revenue', revenue);
+  }
+
   return (
     <View style={styles.testSpacing} ref={ref}>
       <Text>Loaded? {isLoaded ? 'true' : 'false'}</Text>
@@ -453,8 +681,9 @@ const InterstitialHookComponent = React.forwardRef<View>((_, ref) => {
     </View>
   );
 });
+InterstitialHookComponent.displayName = 'InterstitialHookComponent';
 
-class InterstitialHookTest implements Test {
+class InterstitialHookTest implements AutoExecutableTest {
   getPath(): string {
     return 'InterstitialHook';
   }
@@ -468,7 +697,7 @@ class InterstitialHookTest implements Test {
   }
 
   execute(component: any, complete: (result: TestResult) => void): void {
-    let results = new TestResult();
+    const results = new TestResult();
     try {
       // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
     } catch (error) {
@@ -526,8 +755,9 @@ const RewardedHookComponent = React.forwardRef<View>((_, ref) => {
     </View>
   );
 });
+RewardedHookComponent.displayName = 'RewardedHookComponent';
 
-class RewardedHookTest implements Test {
+class RewardedHookTest implements AutoExecutableTest {
   getPath(): string {
     return 'RewardedHook';
   }
@@ -541,7 +771,7 @@ class RewardedHookTest implements Test {
   }
 
   execute(component: any, complete: (result: TestResult) => void): void {
-    let results = new TestResult();
+    const results = new TestResult();
     try {
       // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
     } catch (error) {
@@ -603,8 +833,10 @@ const RewardedInterstitialHookComponent = React.forwardRef<View>((_, ref) => {
     </View>
   );
 });
+RewardedInterstitialHookComponent.displayName =
+  'RewardedInterstitialHookComponent';
 
-class RewardedInterstitialHookTest implements Test {
+class RewardedInterstitialHookTest implements AutoExecutableTest {
   getPath(): string {
     return 'RewardedInterstitialHook';
   }
@@ -618,7 +850,7 @@ class RewardedInterstitialHookTest implements Test {
   }
 
   execute(component: any, complete: (result: TestResult) => void): void {
-    let results = new TestResult();
+    const results = new TestResult();
     try {
       // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
     } catch (error) {
@@ -660,7 +892,9 @@ const AppOpenHookComponent = React.forwardRef<View>((_, ref) => {
     </View>
   );
 });
-class AppOpenHookTest implements Test {
+AppOpenHookComponent.displayName = 'AppOpenHookComponent';
+
+class AppOpenHookTest implements AutoExecutableTest {
   getPath(): string {
     return 'AppOpenHook';
   }
@@ -674,7 +908,7 @@ class AppOpenHookTest implements Test {
   }
 
   execute(component: any, complete: (result: TestResult) => void): void {
-    let results = new TestResult();
+    const results = new TestResult();
     try {
       // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
     } catch (error) {
@@ -685,7 +919,7 @@ class AppOpenHookTest implements Test {
   }
 }
 
-class AdInspectorTest implements Test {
+class AdInspectorTest implements AutoExecutableTest {
   getPath(): string {
     return 'AdInspectorTest';
   }
@@ -708,7 +942,7 @@ class AdInspectorTest implements Test {
   }
 
   execute(component: any, complete: (result: TestResult) => void): void {
-    let results = new TestResult();
+    const results = new TestResult();
     try {
       // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
     } catch (error) {
@@ -719,7 +953,13 @@ class AdInspectorTest implements Test {
   }
 }
 
-const GAMBannerComponent = React.forwardRef<View>((_, ref) => {
+const GAMBannerComponent = React.forwardRef<
+  View,
+  {
+    unitId: string;
+    sizes: (keyof typeof GAMBannerAdSize)[];
+  }
+>(({unitId, sizes}, ref) => {
   const bannerRef = useRef<GAMBannerAd>(null);
   const recordManualImpression = () => {
     bannerRef.current?.recordManualImpression();
@@ -729,8 +969,8 @@ const GAMBannerComponent = React.forwardRef<View>((_, ref) => {
       {/* To test FLUID size ad, use `TestIds.GAM_NATIVE` */}
       <GAMBannerAd
         ref={bannerRef}
-        unitId={TestIds.GAM_BANNER}
-        sizes={[BannerAdSize.ADAPTIVE_BANNER]}
+        unitId={unitId}
+        sizes={sizes}
         requestOptions={{
           requestNonPersonalizedAdsOnly: true,
         }}
@@ -743,9 +983,32 @@ const GAMBannerComponent = React.forwardRef<View>((_, ref) => {
     </View>
   );
 });
-class GAMBannerTest implements Test {
+GAMBannerComponent.displayName = 'GAMBannerComponent';
+
+class GAMBannerTest implements AutoExecutableTest {
+  constructor(
+    private readonly props: {
+      unitId: string;
+      sizes: (keyof typeof GAMBannerAdSize)[];
+    },
+  ) {}
+
   getPath(): string {
-    return 'GAMBanner';
+    return (
+      'GAMBanner ' +
+      this.props.sizes
+        .map(size =>
+          size
+            .split('_')
+            .map(
+              (s: string) =>
+                s.toLowerCase().charAt(0).toUpperCase() +
+                s.toLowerCase().slice(1),
+            )
+            .join(''),
+        )
+        .join('_')
+    );
   }
 
   getTestType(): TestType {
@@ -753,11 +1016,11 @@ class GAMBannerTest implements Test {
   }
 
   render(onMount: (component: any) => void): React.ReactNode {
-    return <GAMBannerComponent ref={onMount} />;
+    return <GAMBannerComponent ref={onMount} {...this.props} />;
   }
 
   execute(component: any, complete: (result: TestResult) => void): void {
-    let results = new TestResult();
+    const results = new TestResult();
     try {
       // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
     } catch (error) {
@@ -776,7 +1039,7 @@ const gamInterstitial = GAMInterstitialAd.createForAdRequest(
   },
 );
 
-class GAMInterstitialTest implements Test {
+class GAMInterstitialTest implements AutoExecutableTest {
   adListener: () => void;
   adLoaded = false;
 
@@ -837,7 +1100,7 @@ class GAMInterstitialTest implements Test {
   }
 
   execute(component: any, complete: (result: TestResult) => void): void {
-    let results = new TestResult();
+    const results = new TestResult();
     try {
       // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
     } catch (error) {
@@ -849,7 +1112,7 @@ class GAMInterstitialTest implements Test {
   }
 }
 
-class DebugMenuTest implements Test {
+class DebugMenuTest implements AutoExecutableTest {
   constructor() {
     // Android requires SDK initialization before opening the Debug Menu
     Platform.OS === 'android' && MobileAds().initialize().catch(console.error);
@@ -877,7 +1140,7 @@ class DebugMenuTest implements Test {
   }
 
   execute(component: any, complete: (result: TestResult) => void): void {
-    let results = new TestResult();
+    const results = new TestResult();
     try {
       // You can do anything here, it will execute on-device + in-app. Results are aggregated + visible in-app.
     } catch (error) {
@@ -890,8 +1153,13 @@ class DebugMenuTest implements Test {
 
 // All tests must be registered - a future feature will allow auto-bundling of tests via configured path or regex
 Object.keys(BannerAdSize).forEach(bannerAdSize => {
+  if (bannerAdSize === "INLINE_ADAPTIVE_BANNER") {
+    TestRegistry.registerTest(new BannerTest(bannerAdSize, 100))
+    TestRegistry.registerTest(new BannerTest(bannerAdSize, 200, 200))
+  }
   TestRegistry.registerTest(new BannerTest(bannerAdSize));
 });
+TestRegistry.registerTest(new CollapsibleBannerTest());
 TestRegistry.registerTest(new AppOpenTest());
 TestRegistry.registerTest(new InterstitialTest());
 TestRegistry.registerTest(new RewardedTest());
@@ -901,8 +1169,20 @@ TestRegistry.registerTest(new InterstitialHookTest());
 TestRegistry.registerTest(new RewardedHookTest());
 TestRegistry.registerTest(new AppOpenHookTest());
 TestRegistry.registerTest(new RewardedInterstitialHookTest());
+TestRegistry.registerTest(new NativeTest());
 TestRegistry.registerTest(new AdInspectorTest());
-TestRegistry.registerTest(new GAMBannerTest());
+TestRegistry.registerTest(
+  new GAMBannerTest({
+    unitId: TestIds.GAM_BANNER,
+    sizes: [BannerAdSize.ADAPTIVE_BANNER],
+  }),
+);
+TestRegistry.registerTest(
+  new GAMBannerTest({
+    unitId: TestIds.GAM_NATIVE,
+    sizes: [GAMBannerAdSize.FLUID],
+  }),
+);
 TestRegistry.registerTest(new GAMInterstitialTest());
 TestRegistry.registerTest(new DebugMenuTest());
 

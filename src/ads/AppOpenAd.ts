@@ -16,13 +16,13 @@
  */
 
 import { isString } from '../common';
-import { MobileAds } from '../MobileAds';
 import { validateAdRequestOptions } from '../validateAdRequestOptions';
 import { MobileAd } from './MobileAd';
 import { AdEventType } from '../AdEventType';
 import { AdEventListener } from '../types/AdEventListener';
 import { AdEventsListener } from '../types/AdEventsListener';
 import { RequestOptions } from '../types/RequestOptions';
+import NativeAppOpenModule from '../specs/modules/NativeAppOpenModule';
 
 export class AppOpenAd extends MobileAd {
   protected static _appOpenRequest = 0;
@@ -42,7 +42,14 @@ export class AppOpenAd extends MobileAd {
     }
 
     const requestId = AppOpenAd._appOpenRequest++;
-    return new AppOpenAd('app_open', MobileAds(), requestId, adUnitId, options);
+    return new AppOpenAd(
+      'app_open',
+      requestId,
+      adUnitId,
+      NativeAppOpenModule.appOpenLoad,
+      NativeAppOpenModule.appOpenShow,
+      options,
+    );
   }
 
   addAdEventsListener<T extends AdEventType>(listener: AdEventsListener<T>): () => void {

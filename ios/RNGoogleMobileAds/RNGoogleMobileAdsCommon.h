@@ -16,8 +16,10 @@
  *
  */
 
+#if !TARGET_OS_MACCATALYST
+
+#import <GoogleMobileAds/GoogleMobileAds.h>
 #import <React/RCTBridgeModule.h>
-@import GoogleMobileAds;
 
 @interface RNGoogleMobileAdsCommon : NSObject
 
@@ -32,7 +34,9 @@
               error:(nullable NSDictionary *)error
                data:(nullable NSDictionary *)data;
 
-+ (GADAdSize)stringToAdSize:(NSString *)value;
++ (GADAdSize)stringToAdSize:(NSString *)value
+              withMaxHeight:(CGFloat)maxHeight
+                   andWidth:(CGFloat)adWidth;
 
 + (BOOL)isAdManagerUnit:(NSString *)unitId;
 
@@ -64,3 +68,5 @@ extern NSString *const GOOGLE_MOBILE_ADS_EVENT_APP_EVENT;
 
 extern NSString *const GOOGLE_MOBILE_ADS_EVENT_REWARDED_LOADED;
 extern NSString *const GOOGLE_MOBILE_ADS_EVENT_REWARDED_EARNED_REWARD;
+
+#endif

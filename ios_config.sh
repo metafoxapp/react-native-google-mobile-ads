@@ -14,6 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+##########################################################################
+##########################################################################
+#
+#  NOTE THAT IF YOU CHANGE THIS FILE YOU MUST RUN pod install AFTERWARDS
+#
+#  This file is installed as an Xcode build script in the project file
+#  by cocoapods, and you will not see your changes until you pod install
+#
+##########################################################################
+##########################################################################
+
 set -e
 
 _MAX_LOOKUPS=2;
@@ -28,6 +40,7 @@ _CURRENT_SEARCH_DIR=${PROJECT_DIR}
 _PLIST_BUDDY=/usr/libexec/PlistBuddy
 _TARGET_PLIST="${BUILT_PRODUCTS_DIR}/${INFOPLIST_PATH}"
 _DSYM_PLIST="${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Info.plist"
+_PACKAGE_JSON_NAME='package.json'
 
 # plist arrays
 _PLIST_ENTRY_KEYS=()
@@ -150,8 +163,9 @@ if ! [[ -f "${_TARGET_PLIST}" ]]; then
 fi
 
 if ! [[ $_IOS_APP_ID ]]; then
-  echo "error: ios_app_id key not found in react-native-google-mobile-ads key in app.json. App will crash without it."
-  exit 1
+  echo "warning: ios_app_id key not found in react-native-google-mobile-ads key in app.json. App will crash without it."
+  echo "         You can safely ignore this warning if you are using our Expo config plugin."
+  exit 0
 fi
 
 for plist in "${_TARGET_PLIST}" "${_DSYM_PLIST}" ; do

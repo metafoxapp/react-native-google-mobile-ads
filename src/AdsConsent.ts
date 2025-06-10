@@ -16,23 +16,18 @@
  */
 
 import { TCModel, TCString } from '@iabtcf/core';
-import { NativeModules } from 'react-native';
-import { AdsConsentDebugGeography } from './AdsConsentDebugGeography';
 import { AdsConsentPurposes } from './AdsConsentPurposes';
 import { AdsConsentSpecialFeatures } from './AdsConsentSpecialFeatures';
 import { isPropertySet, isArray, isBoolean, isObject, isString } from './common';
 import {
-  AdsConsentFormResult,
-  AdsConsentInfo,
-  AdsConsentInfoOptions,
   AdsConsentInterface,
-  AdsConsentUserChoices,
-} from './types/AdsConsent.interface';
-
-const native = NativeModules.RNGoogleMobileAdsConsentModule;
+  AdsConsentDebugGeography,
+  AdsConsentInfoOptions,
+} from './specs/modules/NativeConsentModule';
+import native from './specs/modules/NativeConsentModule';
 
 export const AdsConsent: AdsConsentInterface = {
-  requestInfoUpdate(options: AdsConsentInfoOptions = {}): Promise<AdsConsentInfo> {
+  requestInfoUpdate(options: AdsConsentInfoOptions = {}) {
     if (!isObject(options)) {
       throw new Error("AdsConsent.requestInfoUpdate(*) 'options' expected an object value.");
     }
@@ -41,10 +36,12 @@ export const AdsConsent: AdsConsentInterface = {
       isPropertySet(options, 'debugGeography') &&
       options.debugGeography !== AdsConsentDebugGeography.DISABLED &&
       options.debugGeography !== AdsConsentDebugGeography.EEA &&
-      options.debugGeography !== AdsConsentDebugGeography.NOT_EEA
+      options.debugGeography !== AdsConsentDebugGeography.NOT_EEA &&
+      options.debugGeography !== AdsConsentDebugGeography.REGULATED_US_STATE &&
+      options.debugGeography !== AdsConsentDebugGeography.OTHER
     ) {
       throw new Error(
-        "AdsConsent.requestInfoUpdate(*) 'options.debugGeography' expected one of AdsConsentDebugGeography.DISABLED, AdsConsentDebugGeography.EEA or AdsConsentDebugGeography.NOT_EEA.",
+        "AdsConsent.requestInfoUpdate(*) 'options.debugGeography' expected one of AdsConsentDebugGeography.DISABLED, AdsConsentDebugGeography.EEA, AdsConsentDebugGeography.NOT_EEA, AdsConsentDebugGeography.REGULATED_US_STATE or AdsConsentDebugGeography.OTHER.",
       );
     }
 
@@ -76,24 +73,53 @@ export const AdsConsent: AdsConsentInterface = {
     return native.requestInfoUpdate(options);
   },
 
-  showForm(): Promise<AdsConsentFormResult> {
+  showForm() {
     return native.showForm();
   },
 
-  reset(): void {
+  showPrivacyOptionsForm() {
+    return native.showPrivacyOptionsForm();
+  },
+
+  loadAndShowConsentFormIfRequired() {
+    return native.loadAndShowConsentFormIfRequired();
+  },
+
+  getConsentInfo() {
+    return native.getConsentInfo();
+  },
+
+  async gatherConsent(options: AdsConsentInfoOptions = {}) {
+    await this.requestInfoUpdate(options);
+    return this.loadAndShowConsentFormIfRequired();
+  },
+
+  reset() {
     return native.reset();
   },
 
-  getTCString(): Promise<string> {
+  getTCString() {
     return native.getTCString();
   },
 
-  async getTCModel(): Promise<TCModel> {
+  async getTCModel() {
     const tcString = await native.getTCString();
     return TCString.decode(tcString);
   },
 
-  async getUserChoices(): Promise<AdsConsentUserChoices> {
+  getGdprApplies() {
+    return native.getGdprApplies();
+  },
+
+  getPurposeConsents() {
+    return native.getPurposeConsents();
+  },
+
+  getPurposeLegitimateInterests() {
+    return native.getPurposeLegitimateInterests();
+  },
+
+  async getUserChoices() {
     const tcString = await native.getTCString();
 
     let tcModel: TCModel;
@@ -120,7 +146,7 @@ export const AdsConsent: AdsConsentInterface = {
         AdsConsentPurposes.CREATE_A_PERSONALISED_ADS_PROFILE,
       ),
       createAPersonalisedContentProfile: tcModel.purposeConsents.has(
-        AdsConsentPurposes.CREATE_A_PERSONALISED_ADS_PROFILE,
+        AdsConsentPurposes.CREATE_A_PERSONALISED_CONTENT_PROFILE,
       ),
       developAndImproveProducts: tcModel.purposeConsents.has(
         AdsConsentPurposes.DEVELOP_AND_IMPROVE_PRODUCTS,

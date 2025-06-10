@@ -1,4 +1,5 @@
 import admob, { MaxAdContentRating } from '../src';
+import RNGoogleMobileAdsModule from '../src/specs/modules/NativeGoogleMobileAdsModule';
 
 describe('Admob', function () {
   describe('setRequestConfiguration()', function () {
@@ -61,10 +62,46 @@ describe('Admob', function () {
     });
 
     describe('testDebugMenu', function () {
+      it('does call native initialize method', () => {
+        admob().initialize();
+        expect(RNGoogleMobileAdsModule.initialize).toBeCalledTimes(1);
+      });
+
+      it('does call native setRequestConfiguration method', () => {
+        admob().setRequestConfiguration({ tagForChildDirectedTreatment: true });
+        expect(RNGoogleMobileAdsModule.setRequestConfiguration).toBeCalledTimes(1);
+      });
+
+      it('does call native openAdInspector method', () => {
+        admob().openAdInspector();
+        expect(RNGoogleMobileAdsModule.openAdInspector).toBeCalledTimes(1);
+      });
+
+      it('does call native openDebugMenu method', () => {
+        admob().openDebugMenu('12345');
+        expect(RNGoogleMobileAdsModule.openDebugMenu).toBeCalledTimes(1);
+      });
+
       it('throws if adUnit is empty', function () {
         expect(() => {
           admob().openDebugMenu('');
         }).toThrowError('openDebugMenu expected a non-empty string value');
+      });
+
+      it('does call native setAppVolume method', () => {
+        admob().setAppVolume(0.5);
+        expect(RNGoogleMobileAdsModule.setAppVolume).toBeCalledTimes(1);
+      });
+
+      it('throws if setAppVolume is greater than 1', function () {
+        expect(() => {
+          admob().setAppVolume(2);
+        }).toThrowError('The app volume must be a value between 0 and 1 inclusive.');
+      });
+
+      it('does call native setAppMuted method', () => {
+        admob().setAppMuted(true);
+        expect(RNGoogleMobileAdsModule.setAppMuted).toBeCalledTimes(1);
       });
     });
   });

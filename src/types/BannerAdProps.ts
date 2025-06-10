@@ -1,5 +1,6 @@
 import { BannerAdSize, GAMBannerAdSize } from '../BannerAdSize';
 import { AppEvent } from './AppEvent';
+import type { PaidEventListener } from './PaidEventListener';
 import { RequestOptions } from './RequestOptions';
 
 /**
@@ -48,6 +49,18 @@ export interface BannerAdProps {
   size: BannerAdSize | string;
 
   /**
+   * Limit inline adaptive banner height.
+   * By default, inline adaptive banners instantiated without a maxHeight value have a maxHeight equal to the device height.
+   */
+  maxHeight?: number;
+
+  /**
+   * Sets the width for adaptive banners (inline and anchored).
+   * If not specified, the width defaults to the full device width.
+   */
+  width?: number;
+
+  /**
    * The request options for this banner.
    */
   requestOptions?: RequestOptions;
@@ -71,6 +84,17 @@ export interface BannerAdProps {
    * Called when the user is about to return to the app after tapping on an ad.
    */
   onAdClosed?: () => void;
+
+  /**
+   * Called when ad generates revenue.
+   * See: https://developers.google.com/admob/android/impression-level-ad-revenue
+   */
+  onPaid?: PaidEventListener;
+
+  /**
+   * Called when ad size dimensions changed
+   */
+  onSizeChange?: (dimensions: { width: number; height: number }) => void;
 }
 
 /**
@@ -111,7 +135,7 @@ export interface GAMBannerAdProps extends Omit<BannerAdProps, 'size'> {
    *
    * Inventory must be available for the banner sizes specified, otherwise a no-fill error will be sent to `onAdFailedToLoad`.
    */
-  sizes: typeof GAMBannerAdSize[keyof typeof GAMBannerAdSize][] | string[];
+  sizes: (typeof GAMBannerAdSize)[keyof typeof GAMBannerAdSize][] | string[];
 
   /**
    * Whether to enable the manual impression counting.

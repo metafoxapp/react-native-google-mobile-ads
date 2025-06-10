@@ -26,7 +26,7 @@ concurrency:
 jobs:
   android:
     name: Android
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 70
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -44,39 +44,56 @@ jobs:
         # This is useful for benchmarking, do 0, 1, 2, etc (up to 256 max job-per-matrix limit) for averages
         iteration: [0]
     steps:
-      - uses: actions/checkout@v3
+      - name: Liberate disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: false
+          dotnet: true
+          haskell: true
+          large-packages: false
+          docker-images: true
+          swap-storage: false
+
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 50
 
       # Set up tool versions
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 20
 
-      - name: Configure JDK 1.11
-        uses: actions/setup-java@v3
+      - name: Configure JDK
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '11' # ubuntu-latest is about to default to 11, force it everywhere
+          java-version: '17'
 
       # Set path variables needed for caches
       - name: Set workflow variables
         id: workflow-variables
         run: |
-          echo "::set-output name=metro-cache::$HOME/.metro"
-          echo "::set-output name=yarn-cache-dir::$(yarn cache dir)"
-          echo "::set-output name=tempdir::$TMPDIR"
+          echo "metro-cache=$HOME/.metro" >> $GITHUB_OUTPUT
+          echo "yarn-cache-dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+          echo "tempdir=$TMPDIR" >> $GITHUB_OUTPUT
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         name: Yarn Cache
         id: yarn-cache
         with:
           path: ${{ steps.workflow-variables.outputs.yarn-cache-dir }}
-          key: ${{ runner.os }}-yarn-v1-${{ hashFiles('**/package.json') }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('package.json', 'RNGoogleMobileAdsExample/package.json') }}
           restore-keys: ${{ runner.os }}-yarn-v1
 
       - name: Yarn Install
-        uses: nick-invision/retry@v2
+        uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
           retry_wait_seconds: 60
@@ -93,7 +110,7 @@ jobs:
 
       - name: Warm Gradle Cache
         # This makes sure we fetch gradle network resources with a retry
-        uses: nick-invision/retry@v2
+        uses: nick-fields/retry@v3
         with:
           timeout_minutes: 15
           retry_wait_seconds: 60
@@ -104,7 +121,7 @@ jobs:
         # Repo limit is 10GB; branch caches are independent; branches may read default branch cache.
         # We don't want branches to evict main branch snapshot, so save on main, read-only all else
       - name: AVD cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         id: avd-cache
         with:
           path: |
@@ -155,7 +172,7 @@ jobs:
             echo "First boot warmup completed."
 
       - name: Metro Bundler Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.workflow-variables.outputs.metro-cache }}
           key: ${{ runner.os }}-metro-v1-${{ github.run_id }}
@@ -189,21 +206,15 @@ jobs:
           disable-animations: true
           script: |
             $ANDROID_HOME/platform-tools/adb logcat '*:D' > adb-log.txt &
-            yarn tests:android:test
+            yarn tests:android:run
 
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
         with:
           verbose: true
 
-      - name: Compress Emulator Log
-        continue-on-error: true
-        if: always()
-        run: gzip -9 adb-log.txt
-        shell: bash
-
       - name: Upload Emulator Log
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: adb_logs
-          path: adb-log.txt.gz
+          path: adb-log.txt

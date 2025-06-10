@@ -16,38 +16,31 @@
  *
  */
 
-import React, { useState, useEffect } from 'react';
-import { NativeMethods, requireNativeComponent } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { DimensionValue, NativeSyntheticEvent, Platform } from 'react-native';
 import { isFunction } from '../common';
+import { RevenuePrecisions } from '../common/constants';
 import { NativeError } from '../internal/NativeError';
+import GoogleMobileAdsBannerView from '../specs/components/GoogleMobileAdsBannerViewNativeComponent';
+import type { NativeEvent } from '../specs/components/GoogleMobileAdsBannerViewNativeComponent';
 import { BannerAdSize, GAMBannerAdSize } from '../BannerAdSize';
 import { validateAdRequestOptions } from '../validateAdRequestOptions';
 import { GAMBannerAdProps } from '../types/BannerAdProps';
-import { RequestOptions } from '../types/RequestOptions';
-
-type NativeEvent =
-  | {
-      type: 'onAdLoaded' | 'onSizeChange';
-      width: number;
-      height: number;
-    }
-  | { type: 'onAdOpened' | 'onAdClosed' }
-  | {
-      type: 'onAdFailedToLoad';
-      code: string;
-      message: string;
-    }
-  | {
-      type: 'onAppEvent';
-      name: string;
-      data?: string;
-    };
+import { debounce } from '../common/debounce';
 
 const sizeRegex = /([0-9]+)x([0-9]+)/;
 
-export const BaseAd = React.forwardRef<GoogleMobileAdsBannerView, GAMBannerAdProps>(
-  ({ unitId, sizes, requestOptions, manualImpressionsEnabled, ...props }, ref) => {
-    const [dimensions, setDimensions] = useState<(number | string)[]>([0, 0]);
+export const BaseAd = React.forwardRef<
+  React.ElementRef<typeof GoogleMobileAdsBannerView>,
+  GAMBannerAdProps
+>(
+  (
+    { unitId, sizes, maxHeight, width, requestOptions, manualImpressionsEnabled, ...props },
+    ref,
+  ) => {
+    const [dimensions, setDimensions] = useState<(number | DimensionValue)[]>([0, 0]);
+
+    const debouncedSetDimensions = debounce(setDimensions, 100);
 
     useEffect(() => {
       if (!unitId) {
@@ -66,27 +59,50 @@ export const BaseAd = React.forwardRef<GoogleMobileAdsBannerView, GAMBannerAdPro
       }
     }, [sizes]);
 
-    const parsedRequestOptions = JSON.stringify(requestOptions);
-
-    useEffect(() => {
+    const validatedRequestOptions = useMemo(() => {
       if (requestOptions) {
         try {
-          validateAdRequestOptions(requestOptions);
+          return validateAdRequestOptions(requestOptions);
         } catch (e) {
           if (e instanceof Error) {
             throw new Error(`BannerAd: ${e.message}`);
           }
         }
       }
-    }, [parsedRequestOptions]);
+      return {};
+    }, [requestOptions]);
 
-    function onNativeEvent({ nativeEvent }: { nativeEvent: NativeEvent }) {
+    function onNativeEvent(event: NativeSyntheticEvent<NativeEvent>) {
+      const nativeEvent = event.nativeEvent as
+        | {
+            type: 'onAdLoaded' | 'onSizeChange';
+            width: number;
+            height: number;
+          }
+        | { type: 'onAdOpened' | 'onAdClosed' }
+        | {
+            type: 'onAdFailedToLoad';
+            code: string;
+            message: string;
+          }
+        | {
+            type: 'onAppEvent';
+            name: string;
+            data?: string;
+          }
+        | {
+            type: 'onPaid';
+            currency: string;
+            precision: RevenuePrecisions;
+            value: number;
+          };
       const { type } = nativeEvent;
 
-      if (type !== 'onSizeChange' && isFunction(props[type])) {
+      if (isFunction(props[type])) {
         let eventHandler, eventPayload;
         switch (type) {
           case 'onAdLoaded':
+          case 'onSizeChange':
             eventPayload = {
               width: nativeEvent.width,
               height: nativeEvent.height,
@@ -104,20 +120,49 @@ export const BaseAd = React.forwardRef<GoogleMobileAdsBannerView, GAMBannerAdPro
             };
             if ((eventHandler = props[type])) eventHandler(eventPayload);
             break;
+          case 'onPaid':
+            const handler = props[type];
+            if (handler) {
+              handler({
+                currency: nativeEvent.currency,
+                precision: nativeEvent.precision,
+                value: nativeEvent.value,
+              });
+            }
+            break;
           default:
             if ((eventHandler = props[type])) eventHandler();
         }
       }
 
       if (type === 'onAdLoaded' || type === 'onSizeChange') {
-        const { width, height } = nativeEvent;
-        if (width && height) setDimensions([width, height]);
+        const width = Math.ceil(nativeEvent.width);
+        const height = Math.ceil(nativeEvent.height);
+
+        if (width && height && JSON.stringify([width, height]) !== JSON.stringify(dimensions)) {
+          /**
+           * On Android, it seems the ad size is not always the definitive on the first onAdLoaded event.
+           * So if we change the size here with an incorrect value, then we relayout the ad on native side
+           * and it might cause an incorrect size to be set.
+           *
+           * To reproduce this issue, go to the example app, on the "GAMBanner Fluid" example
+           * and reload the ad several times
+           *
+           * on my low-end Samsung A10s, it always took less than 100ms in debug mode to get the correct size
+           * hence the 100ms debounce
+           */
+          if (sizes.includes(GAMBannerAdSize.FLUID) && Platform.OS === 'android') {
+            debouncedSetDimensions([width, height]);
+          } else {
+            setDimensions([width, height]);
+          }
+        }
       }
     }
 
     const style = sizes.includes(GAMBannerAdSize.FLUID)
       ? {
-          width: '100%',
+          width: '100%' as DimensionValue,
           height: dimensions[1],
         }
       : {
@@ -128,10 +173,10 @@ export const BaseAd = React.forwardRef<GoogleMobileAdsBannerView, GAMBannerAdPro
     return (
       <GoogleMobileAdsBannerView
         ref={ref}
-        sizes={sizes}
+        sizeConfig={{ sizes, maxHeight, width }}
         style={style}
         unitId={unitId}
-        request={validateAdRequestOptions(requestOptions)}
+        request={JSON.stringify(validatedRequestOptions)}
         manualImpressionsEnabled={!!manualImpressionsEnabled}
         onNativeEvent={onNativeEvent}
       />
@@ -139,20 +184,3 @@ export const BaseAd = React.forwardRef<GoogleMobileAdsBannerView, GAMBannerAdPro
   },
 );
 BaseAd.displayName = 'BaseAd';
-
-interface NativeBannerProps {
-  sizes: GAMBannerAdProps['sizes'];
-  style: {
-    width?: number | string;
-    height?: number | string;
-  };
-  unitId: string;
-  request: RequestOptions;
-  manualImpressionsEnabled: boolean;
-  onNativeEvent: (event: { nativeEvent: NativeEvent }) => void;
-}
-
-const GoogleMobileAdsBannerView = requireNativeComponent<NativeBannerProps>(
-  'RNGoogleMobileAdsBannerView',
-);
-export type GoogleMobileAdsBannerView = React.Component<NativeBannerProps> & NativeMethods;
